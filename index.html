@@ -181,12 +181,8 @@
   .install-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,var(--accent),var(--bright)); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
   .install-title { font-family:var(--font-display); font-size:0.95rem; color:var(--glow); letter-spacing:0.05em; }
   .install-sub { font-size:0.8rem; color:var(--muted); margin-top:2px; }
-  .install-btn { width:100%; padding:0.75rem; border-radius:var(--radius); background:linear-gradient(135deg,var(--accent),var(--bright)); border:none; color:white; font-family:var(--font-display); font-size:0.88rem; font-weight:600; letter-spacing:0.08em; cursor:pointer; transition:all 0.2s; }
+  .install-btn { width:100%; padding:0.85rem; border-radius:var(--radius); background:linear-gradient(135deg,var(--accent),var(--bright)); border:none; color:white; font-family:var(--font-display); font-size:0.9rem; font-weight:600; letter-spacing:0.08em; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 20px rgba(124,58,237,0.4); }
   .install-btn:active { transform:scale(0.98); }
-  .install-dismiss { background:none; border:none; color:var(--subtle); font-size:1.3rem; cursor:pointer; padding:0 0 0 0.5rem; flex-shrink:0; }
-  .ios-hint { display:none; margin-bottom:1.25rem; background:rgba(45,21,80,0.7); border:0.5px solid var(--border); border-radius:var(--radius-lg); padding:1rem 1.25rem; font-size:0.88rem; color:var(--muted); line-height:1.7; animation:fadeInUp 0.4s ease; }
-  .ios-hint.visible { display:block; }
-  .ios-hint strong { color:var(--glow); font-family:var(--font-display); font-size:0.9rem; display:block; margin-bottom:0.5rem; }
 </style>
 <link rel="manifest" href="manifest.json">
 </head>
@@ -218,27 +214,33 @@
       <button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:0.5rem;">Entra nel Multiverso</button>
       <div class="auth-switch">Non hai un account? <a onclick="showAuthPage('auth-register')">Registrati</a></div>
 
-      <!-- INSTALL BANNER Android/Desktop -->
-      <div class="install-banner" id="install-banner">
-        <div class="install-top">
-          <div class="install-icon">⚔</div>
-          <div style="flex:1;">
-            <div class="install-title">Installa l'App</div>
-            <div class="install-sub">Accedi più velocemente dalla home</div>
-          </div>
-          <button class="install-dismiss" onclick="dismissInstall()" title="Chiudi">×</button>
-        </div>
-        <button class="install-btn" onclick="triggerInstall()">📲 Scarica App</button>
-      </div>
+      <!-- INSTALL SECTION - sempre visibile se non già installata -->
+      <div id="install-section" style="margin-top:1.25rem;display:none;">
+        <!-- Pulsante Android/Desktop -->
+        <button class="install-btn" id="install-btn-android" onclick="triggerInstall()" style="display:none;">
+          📲 Scarica App
+        </button>
 
-      <!-- iOS HINT (Safari) -->
-      <div class="ios-hint" id="ios-hint">
-        <strong>📲 Installa su iPhone / iPad</strong>
-        Apri questa pagina in <strong>Safari</strong>, poi:<br>
-        1. Tocca il pulsante <strong>Condividi</strong> &#x2197; in basso<br>
-        2. Scorri e tocca <strong>"Aggiungi a Home"</strong><br>
-        3. Premi <strong>"Aggiungi"</strong> in alto a destra
-        <button onclick="document.getElementById('ios-hint').classList.remove('visible')" style="display:block;margin-top:0.75rem;background:none;border:0.5px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 16px;cursor:pointer;font-family:var(--font-body);font-size:0.85rem;width:100%;">Ho capito</button>
+        <!-- Guida iOS -->
+        <div id="ios-hint" style="display:none;">
+          <div style="background:rgba(45,21,80,0.7);border:0.5px solid var(--border-strong);border-radius:var(--radius-lg);padding:1rem 1.25rem;">
+            <div style="font-family:var(--font-display);font-size:0.9rem;color:var(--glow);margin-bottom:0.75rem;text-align:center;">📲 Installa su iPhone / iPad</div>
+            <div style="font-size:0.85rem;color:var(--muted);line-height:1.8;">
+              <div>1. Tocca <strong style="color:var(--text);">Condividi</strong> <span style="font-size:1.1rem;">⬆</span> in fondo a Safari</div>
+              <div>2. Scorri e tocca <strong style="color:var(--text);">"Aggiungi a Home"</strong></div>
+              <div>3. Tocca <strong style="color:var(--text);">"Aggiungi"</strong> in alto a destra</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guida generica (altri browser) -->
+        <div id="generic-hint" style="display:none;">
+          <div style="background:rgba(45,21,80,0.7);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;font-size:0.85rem;color:var(--muted);text-align:center;line-height:1.7;">
+            📲 Per installare l'app:<br>
+            Apri questa pagina in <strong style="color:var(--text);">Chrome</strong> su Android<br>
+            o in <strong style="color:var(--text);">Safari</strong> su iPhone
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1131,62 +1133,69 @@ function render2v2Chart(matches,myTeam,myLabel,enemyLabel){
 // ============ PWA INSTALL ============
 let deferredInstallPrompt = null;
 
-function isIOS() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-}
-function isInStandaloneMode() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isAndroid = () => /android/i.test(navigator.userAgent);
+const isChrome = () => /chrome|chromium/i.test(navigator.userAgent) && !/edg/i.test(navigator.userAgent);
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+function initInstallUI() {
+  // Se già installata come PWA, non mostrare nulla
+  if (isStandalone()) return;
+
+  const section = document.getElementById('install-section');
+  section.style.display = 'block';
+
+  if (isIOS()) {
+    // iOS Safari: mostra guida manuale
+    document.getElementById('ios-hint').style.display = 'block';
+  } else if (deferredInstallPrompt) {
+    // Android/Chrome/Desktop: pulsante diretto
+    document.getElementById('install-btn-android').style.display = 'block';
+  } else {
+    // Altro browser: guida generica, ma aspettiamo anche l'evento
+    document.getElementById('generic-hint').style.display = 'block';
+  }
 }
 
-// Intercept the browser's install prompt (Android / Chrome Desktop)
+// Intercetta l'evento di installazione del browser (Chrome Android/Desktop)
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  // Show banner only if not already installed and not dismissed
-  if (!isInStandaloneMode() && !sessionStorage.getItem('install_dismissed')) {
-    document.getElementById('install-banner').classList.add('visible');
+  if (!isStandalone()) {
+    const section = document.getElementById('install-section');
+    section.style.display = 'block';
+    // Nascondi hint generico e mostra pulsante diretto
+    document.getElementById('generic-hint').style.display = 'none';
+    document.getElementById('install-btn-android').style.display = 'block';
   }
 });
 
-// If already installed, hide banners
 window.addEventListener('appinstalled', () => {
-  document.getElementById('install-banner').classList.remove('visible');
-  document.getElementById('ios-hint').classList.remove('visible');
+  document.getElementById('install-section').style.display = 'none';
   deferredInstallPrompt = null;
   showToast('App installata! Aprila dalla home ⚔', 'success');
 });
 
-// Show iOS hint for Safari users not in standalone
-if (isIOS() && !isInStandaloneMode() && !sessionStorage.getItem('install_dismissed')) {
-  // Delay slightly so auth screen is visible first
-  setTimeout(() => {
-    document.getElementById('ios-hint').classList.add('visible');
-  }, 1200);
-}
-
 window.triggerInstall = async function() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  const { outcome } = await deferredInstallPrompt.userChoice;
-  if (outcome === 'accepted') {
-    showToast('Installazione avviata! ⚔', 'success');
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+      showToast('Installazione avviata! ⚔', 'success');
+      document.getElementById('install-section').style.display = 'none';
+    }
+    deferredInstallPrompt = null;
   }
-  deferredInstallPrompt = null;
-  document.getElementById('install-banner').classList.remove('visible');
 };
 
-window.dismissInstall = function() {
-  document.getElementById('install-banner').classList.remove('visible');
-  document.getElementById('ios-hint').classList.remove('visible');
-  sessionStorage.setItem('install_dismissed', '1');
-};
-
-// Register Service Worker for offline/PWA support
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
-}
+// Mostra UI install dopo che la pagina è pronta
+window.addEventListener('load', () => {
+  setTimeout(initInstallUI, 800);
+  // Registra Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+});
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </body>
