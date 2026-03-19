@@ -2,17 +2,18 @@
   "name": "MTG Tracker",
   "short_name": "MTG Tracker",
   "description": "Storico partite Magic the Gathering tra amici",
-  "start_url": "/",
+  "start_url": "/mtg-tracker/",
+  "scope": "/mtg-tracker/",
   "display": "standalone",
   "background_color": "#0d0618",
   "theme_color": "#1a0a2e",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%231a0a2e'/><text x='96' y='130' font-size='100' text-anchor='middle'>⚔</text></svg>",
-      "sizes": "192x192",
+      "src": "icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

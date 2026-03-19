@@ -184,7 +184,7 @@
   .install-btn { width:100%; padding:0.85rem; border-radius:var(--radius); background:linear-gradient(135deg,var(--accent),var(--bright)); border:none; color:white; font-family:var(--font-display); font-size:0.9rem; font-weight:600; letter-spacing:0.08em; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 20px rgba(124,58,237,0.4); }
   .install-btn:active { transform:scale(0.98); }
 </style>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.svg">
 </head>
 <body>
 
@@ -1193,7 +1193,7 @@ window.addEventListener('load', () => {
   setTimeout(initInstallUI, 800);
   // Registra Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js', {scope: './'}).catch(() => {});
   }
 });
 </script>
