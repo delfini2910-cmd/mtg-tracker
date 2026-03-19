@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a0a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MTG Tracker">
+<meta name="description" content="Traccia le tue partite di Magic the Gathering con gli amici">
+<title>MTG Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #0d0618; --abyss: #1a0a2e; --deep: #2d1550; --mid: #4a2080;
+    --accent: #7c3aed; --bright: #a855f7; --glow: #d8b4fe;
+    --gold: #f59e0b; --red: #dc2626; --green: #059669; --blue: #3b82f6;
+    --text: #f3e8ff; --muted: #c4b5d4; --subtle: #7c6a90;
+    --border: rgba(168,85,247,0.2); --border-strong: rgba(168,85,247,0.5);
+    --card-bg: rgba(45,21,80,0.7); --card-bg-hover: rgba(74,32,128,0.6);
+    --abyss-bg: rgba(26,10,46,0.95); --input-bg: rgba(13,6,24,0.8);
+    --radius: 12px; --radius-lg: 18px; --radius-xl: 24px;
+    --font-display: 'Cinzel', Georgia, serif;
+    --font-body: 'Crimson Pro', Georgia, serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--void); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(124,58,237,0.25) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(168,85,247,0.15) 0%, transparent 60%);
+  }
+  #app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+  .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: white; opacity: 0; animation: twinkle var(--d,3s) var(--delay,0s) infinite; }
+  @keyframes twinkle { 0%,100%{opacity:0} 50%{opacity:var(--max-op,0.6)} }
+
+  /* LOADING */
+  #loading-screen { position: fixed; inset: 0; background: var(--void); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; gap: 1rem; }
+  .loading-logo { font-family: var(--font-display); font-size: 2rem; color: var(--glow); letter-spacing: 0.1em; }
+  .loading-dots { display: flex; gap: 8px; }
+  .loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bright); animation: ldot 1.2s ease-in-out infinite; }
+  .loading-dot:nth-child(2){animation-delay:0.2s} .loading-dot:nth-child(3){animation-delay:0.4s}
+  @keyframes ldot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+  /* HEADER */
+  .app-header { padding: 3rem 1.5rem 2rem; text-align: center; }
+  .app-logo { font-family: var(--font-display); font-size: 2.2rem; font-weight: 700; letter-spacing: 0.08em; color: var(--glow); line-height: 1.1; }
+  .app-logo span { display: block; font-size: 0.85rem; font-weight: 400; letter-spacing: 0.3em; color: var(--muted); margin-top: 0.3rem; text-transform: uppercase; font-family: var(--font-body); }
+  .mana-dots { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 1rem; }
+  .mana-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid; animation: pulse-mana 2s ease-in-out infinite; }
+  .mana-dot.w{background:rgba(248,240,255,0.3);border-color:#f8f0ff;animation-delay:0s}
+  .mana-dot.u{background:rgba(59,130,246,0.3);border-color:#3b82f6;animation-delay:0.3s}
+  .mana-dot.b{background:rgba(13,6,24,0.6);border-color:#7c6a90;animation-delay:0.6s}
+  .mana-dot.r{background:rgba(220,38,38,0.3);border-color:#dc2626;animation-delay:0.9s}
+  .mana-dot.g{background:rgba(5,150,105,0.3);border-color:#059669;animation-delay:1.2s}
+  @keyframes pulse-mana { 0%,100%{transform:scale(1);opacity:0.6} 50%{transform:scale(1.3);opacity:1} }
+
+  /* PAGES */
+  .page { display: none; flex: 1; padding: 0 1rem 5rem; animation: fadeInUp 0.3s ease; }
+  .page.active { display: flex; flex-direction: column; }
+  @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  /* NAV */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px; background: rgba(13,6,24,0.95);
+    border-top: 0.5px solid var(--border); backdrop-filter: blur(12px);
+    display: flex; align-items: stretch;
+    padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom)); z-index: 100;
+  }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0.4rem 0; background: none; border: none; cursor: pointer; color: var(--subtle); font-family: var(--font-body); font-size: 0.65rem; letter-spacing: 0.05em; transition: color 0.2s; }
+  .nav-btn.active { color: var(--bright); }
+  .nav-btn svg { width: 20px; height: 20px; transition: all 0.2s; }
+  .nav-btn.active svg { filter: drop-shadow(0 0 6px rgba(168,85,247,0.6)); }
+
+  /* CARDS */
+  .card { background: var(--card-bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; backdrop-filter: blur(8px); transition: all 0.2s; }
+  .card:hover { border-color: var(--border-strong); background: var(--card-bg-hover); }
+  .card + .card { margin-top: 0.75rem; }
+
+  /* SECTION TITLE */
+  .section-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; color: var(--glow); letter-spacing: 0.06em; margin: 1.5rem 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
+  .section-title::after { content: ''; flex: 1; height: 0.5px; background: var(--border); }
+
+  /* INPUTS */
+  input, select, textarea { width: 100%; background: var(--input-bg); border: 0.5px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-body); font-size: 1rem; padding: 0.75rem 1rem; transition: border-color 0.2s, box-shadow 0.2s; outline: none; appearance: none; -webkit-appearance: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--bright); box-shadow: 0 0 0 2px rgba(168,85,247,0.2); }
+  input::placeholder { color: var(--subtle); }
+  select option { background: var(--abyss); color: var(--text); }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.04em; }
+  .form-group { margin-bottom: 1rem; }
+
+  /* BUTTONS */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.85rem 1.5rem; border-radius: var(--radius); font-family: var(--font-display); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.08em; cursor: pointer; border: none; transition: all 0.2s; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--bright)); color: white; box-shadow: 0 4px 20px rgba(124,58,237,0.4); }
+  .btn-outline { background: transparent; border: 0.5px solid var(--border-strong); color: var(--bright); }
+  .btn-outline:hover { background: rgba(168,85,247,0.1); }
+  .btn-danger { background: rgba(220,38,38,0.15); border: 0.5px solid rgba(220,38,38,0.3); color: #f87171; }
+  .btn-full { width: 100%; }
+
+  /* AUTH */
+  .auth-container { display: flex; flex-direction: column; justify-content: center; min-height: 100vh; padding: 2rem 1.5rem; }
+  .auth-card { background: var(--card-bg); border: 0.5px solid var(--border); border-radius: var(--radius-xl); padding: 2rem 1.5rem; backdrop-filter: blur(12px); }
+  .auth-title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--glow); text-align: center; margin-bottom: 0.5rem; letter-spacing: 0.06em; }
+  .auth-subtitle { color: var(--muted); text-align: center; margin-bottom: 2rem; font-size: 0.95rem; }
+  .auth-switch { text-align: center; margin-top: 1.5rem; color: var(--muted); font-size: 0.9rem; }
+  .auth-switch a { color: var(--bright); cursor: pointer; text-decoration: none; }
+  .auth-error { color: #f87171; font-size: 0.85rem; text-align: center; margin-top: 0.75rem; min-height: 1.2rem; }
+
+  /* STATS GRID */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+  .stat-card { background: rgba(45,21,80,0.5); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem; text-align: center; }
+  .stat-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: var(--bright); line-height: 1; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* MATCH ITEM */
+  .match-item { display: flex; align-items: center; gap: 0.75rem; }
+  .match-result { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+  .match-result.win { background: rgba(5,150,105,0.2); border: 1px solid rgba(5,150,105,0.4); color: #34d399; }
+  .match-result.loss { background: rgba(220,38,38,0.2); border: 1px solid rgba(220,38,38,0.4); color: #f87171; }
+  .match-result.draw { background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.4); color: var(--bright); }
+  .match-info { flex: 1; min-width: 0; }
+  .match-players { font-size: 0.95rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .match-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .match-format { font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; border: 0.5px solid var(--border); color: var(--muted); }
+  .match-date { font-size: 0.78rem; color: var(--subtle); flex-shrink: 0; }
+
+  /* LEADERBOARD */
+  .lb-item { display: flex; align-items: center; gap: 0.75rem; }
+  .lb-rank { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; width: 28px; text-align: center; flex-shrink: 0; }
+  .lb-rank.gold{color:var(--gold)} .lb-rank.silver{color:#94a3b8} .lb-rank.bronze{color:#cd7c2e} .lb-rank.other{color:var(--subtle);font-size:0.9rem}
+  .lb-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; flex-shrink: 0; border: 1.5px solid var(--border); }
+  .lb-name { flex: 1; font-size: 1rem; color: var(--text); }
+  .lb-wins { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--bright); }
+  .lb-rate { font-size: 0.75rem; color: var(--muted); }
+
+  /* TOAST */
+  .toast { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-80px); background: rgba(26,10,46,0.95); border: 0.5px solid var(--border-strong); border-radius: var(--radius); padding: 0.75rem 1.25rem; font-size: 0.9rem; color: var(--text); z-index: 9999; backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); max-width: 320px; text-align: center; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: rgba(5,150,105,0.5); color: #34d399; }
+  .toast.error { border-color: rgba(220,38,38,0.5); color: #f87171; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 500; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal-sheet { background: var(--abyss); border: 0.5px solid var(--border); border-radius: var(--radius-xl) var(--radius-xl) 0 0; width: 100%; max-width: 480px; padding: 1.5rem; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.34,1.2,0.64,1); max-height: 90vh; overflow-y: auto; }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+  .modal-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 0 auto 1.5rem; }
+  .modal-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; color: var(--glow); margin-bottom: 1.5rem; text-align: center; }
+
+  /* CHIPS / FORMATS */
+  .player-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .player-chip { padding: 0.4rem 0.9rem; border-radius: 99px; border: 0.5px solid var(--border); color: var(--muted); font-size: 0.85rem; cursor: pointer; background: transparent; transition: all 0.2s; font-family: var(--font-body); }
+  .player-chip.selected { border-color: var(--bright); color: var(--bright); background: rgba(168,85,247,0.15); }
+  .format-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.5rem; margin-top: 0.5rem; }
+  .format-btn { padding: 0.6rem 0.4rem; border-radius: var(--radius); border: 0.5px solid var(--border); color: var(--muted); font-size: 0.78rem; text-align: center; cursor: pointer; background: transparent; transition: all 0.2s; font-family: var(--font-body); letter-spacing: 0.03em; }
+  .format-btn.selected { border-color: var(--gold); color: var(--gold); background: rgba(245,158,11,0.1); }
+  .winner-option { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: var(--radius); border: 0.5px solid var(--border); cursor: pointer; background: transparent; transition: all 0.2s; margin-bottom: 0.5rem; width: 100%; font-family: var(--font-body); font-size: 1rem; color: var(--text); text-align: left; }
+  .winner-option.selected { border-color: var(--gold); background: rgba(245,158,11,0.1); }
+  .winner-trophy { font-size: 1.2rem; }
+
+  /* PROFILE AVATAR */
+  .profile-avatar { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; border: 2px solid var(--border-strong); margin: 0 auto 0.75rem; box-shadow: 0 0 20px rgba(124,58,237,0.3); }
+
+  /* WELCOME */
+  .welcome-hero { text-align: center; padding: 2rem 0 1.5rem; }
+  .welcome-emblem { width: 80px; height: 80px; margin: 0 auto 1.5rem; background: linear-gradient(135deg,rgba(124,58,237,0.4),rgba(168,85,247,0.2)); border: 1.5px solid var(--border-strong); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; box-shadow: 0 0 30px rgba(124,58,237,0.3); }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--mid); border-radius: 3px; }
+  .page { padding-top: env(safe-area-inset-top); }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loading-logo">⚔ MTG Tracker</div>
+  <div class="loading-dots">
+    <div class="loading-dot"></div>
+    <div class="loading-dot"></div>
+    <div class="loading-dot"></div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- AUTH LOGIN -->
+  <div id="auth-login" class="auth-container" style="display:none;">
+    <div class="app-logo" style="text-align:center;margin-bottom:2rem;">⚔ MTG Tracker<span>Storico Partite</span></div>
+    <div class="auth-card">
+      <div class="auth-title">Bentornato</div>
+      <div class="auth-subtitle">Accedi al tuo account</div>
+      <div class="form-group"><label>Email</label><input type="email" id="login-email" placeholder="la tua email" autocomplete="email"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"></div>
+      <div class="auth-error" id="login-error"></div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:0.5rem;">Entra nel Multiverso</button>
+      <div class="auth-switch">Non hai un account? <a onclick="showAuthPage('auth-register')">Registrati</a></div>
+    </div>
+  </div>
+
+  <!-- AUTH REGISTER -->
+  <div id="auth-register" class="auth-container" style="display:none;">
+    <div class="app-logo" style="text-align:center;margin-bottom:2rem;">⚔ MTG Tracker<span>Storico Partite</span></div>
+    <div class="auth-card">
+      <div class="auth-title">Crea Account</div>
+      <div class="auth-subtitle">Unisciti al gruppo di gioco</div>
+      <div class="form-group"><label>Nome visualizzato</label><input type="text" id="reg-name" placeholder="come ti chiami?" autocomplete="name"></div>
+      <div class="form-group"><label>Username</label><input type="text" id="reg-user" placeholder="scegli un username"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="reg-email" placeholder="la tua email" autocomplete="email"></div>
+      <div class="form-group"><label>Password</label><input type="password" id="reg-pass" placeholder="almeno 6 caratteri" autocomplete="new-password"></div>
+      <div class="form-group">
+        <label>Colore preferito ✦</label>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem;" id="color-picker">
+          <button class="player-chip" data-color="white" onclick="pickColor('white')">☀ Bianco</button>
+          <button class="player-chip" data-color="blue" onclick="pickColor('blue')">💧 Blu</button>
+          <button class="player-chip" data-color="black" onclick="pickColor('black')">💀 Nero</button>
+          <button class="player-chip" data-color="red" onclick="pickColor('red')">🔥 Rosso</button>
+          <button class="player-chip" data-color="green" onclick="pickColor('green')">🌿 Verde</button>
+        </div>
+      </div>
+      <div class="auth-error" id="reg-error"></div>
+      <button class="btn btn-primary btn-full" onclick="doRegister()" style="margin-top:0.5rem;">Inizia l'Avventura</button>
+      <div class="auth-switch">Hai già un account? <a onclick="showAuthPage('auth-login')">Accedi</a></div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="main-app" style="display:none;">
+    <div class="app-header">
+      <div class="app-logo">⚔ MTG Tracker<span>Storico Partite</span></div>
+      <div class="mana-dots">
+        <div class="mana-dot w"></div><div class="mana-dot u"></div>
+        <div class="mana-dot b"></div><div class="mana-dot r"></div><div class="mana-dot g"></div>
+      </div>
+    </div>
+
+    <!-- HOME -->
+    <div id="page-home" class="page active">
+      <div class="welcome-hero">
+        <div class="welcome-emblem">⚔</div>
+        <div style="font-family:var(--font-display);font-size:1.4rem;color:var(--glow);" id="home-greeting">Ciao, Planeswalker!</div>
+        <div style="color:var(--muted);font-size:0.95rem;margin-top:0.3rem;">Pronto a registrare le tue vittorie?</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="qs-wins">0</div><div class="stat-label">Vittorie</div></div>
+        <div class="stat-card"><div class="stat-value" id="qs-played">0</div><div class="stat-label">Partite</div></div>
+        <div class="stat-card"><div class="stat-value" id="qs-rate">0%</div><div class="stat-label">Win Rate</div></div>
+        <div class="stat-card"><div class="stat-value" id="qs-streak">0</div><div class="stat-label">Striscia</div></div>
+      </div>
+      <div class="section-title">Partite Recenti</div>
+      <div id="recent-matches-list"></div>
+      <button class="btn btn-primary btn-full" onclick="openAddMatch()" style="margin-top:1rem;">+ Registra Partita</button>
+    </div>
+
+    <!-- STORICO -->
+    <div id="page-history" class="page">
+      <div class="section-title">Storico Completo</div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <select id="filter-format" onchange="renderHistory()" style="flex:1;">
+          <option value="">Tutti i Formati</option>
+          <option>Commander</option><option>Standard</option><option>Modern</option>
+          <option>Draft</option><option>Pauper</option><option>Legacy</option>
+          <option>Vintage</option><option>Pioneer</option>
+        </select>
+        <select id="filter-result" onchange="renderHistory()" style="flex:1;">
+          <option value="">Tutti</option>
+          <option value="win">Vittorie</option><option value="loss">Sconfitte</option><option value="draw">Pareggi</option>
+        </select>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+    <!-- CLASSIFICA -->
+    <div id="page-leaderboard" class="page">
+      <div class="section-title">Classifica</div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <select id="lb-format" onchange="renderLeaderboard()" style="flex:1;">
+          <option value="">Tutti i Formati</option>
+          <option>Commander</option><option>Standard</option><option>Modern</option>
+          <option>Draft</option><option>Pauper</option><option>Legacy</option>
+        </select>
+      </div>
+      <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- SFIDE -->
+    <div id="page-sfide" class="page">
+      <div class="section-title" style="margin-top:0.5rem;">Tipo di Sfida</div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;">
+        <button class="format-btn selected" id="sfide-tab-1v1" onclick="setSfideTab('1v1')" style="flex:1;padding:0.75rem;">1 vs 1</button>
+        <button class="format-btn" id="sfide-tab-2v2" onclick="setSfideTab('2v2')" style="flex:1;padding:0.75rem;">2 vs 2</button>
+      </div>
+      <div id="sfide-1v1-section">
+        <div class="form-group"><label>Seleziona avversario</label>
+          <select id="rival-select" onchange="renderDuel()"><option value="">— scegli —</option></select></div>
+        <div id="duel-stats"></div>
+        <div id="duel-chart-wrap" style="display:none;">
+          <div class="section-title">Andamento nel Tempo</div>
+          <div class="card" style="padding:1rem 0.5rem;"><canvas id="duel-chart" height="200"></canvas></div>
+        </div>
+        <div id="duel-history" style="margin-top:1rem;"></div>
+      </div>
+      <div id="sfide-2v2-section" style="display:none;">
+        <div class="form-group"><label>Il tuo compagno</label>
+          <select id="ally-select" onchange="render2v2()"><option value="">— scegli compagno —</option></select></div>
+        <div class="form-group"><label>Avversari (seleziona 2)</label>
+          <div class="player-chips" id="enemy-chips"></div></div>
+        <div id="v2-stats"></div>
+        <div id="v2-chart-wrap" style="display:none;">
+          <div class="section-title">Andamento nel Tempo</div>
+          <div class="card" style="padding:1rem 0.5rem;"><canvas id="v2-chart" height="200"></canvas></div>
+        </div>
+        <div id="v2-history" style="margin-top:1rem;"></div>
+      </div>
+    </div>
+
+    <!-- STATISTICHE -->
+    <div id="page-statistiche" class="page">
+      <div class="section-title" style="margin-top:0.5rem;">Statistiche Avanzate</div>
+      <div class="form-group"><label>Analizza avversario</label>
+        <select id="stat-rival-select" onchange="renderStatistiche()"><option value="">— tutti gli avversari —</option></select></div>
+      <div id="stat-overview"></div>
+      <div id="stat-decks-section"></div>
+      <div id="stat-timeline-wrap" style="display:none;">
+        <div class="section-title">Andamento Mensile</div>
+        <div class="card" style="padding:1rem 0.5rem;"><canvas id="stat-timeline-chart" height="200"></canvas></div>
+      </div>
+      <div id="stat-formats-section"></div>
+    </div>
+
+    <!-- PROFILO -->
+    <div id="page-profile" class="page">
+      <div style="text-align:center;padding:1.5rem 0 1rem;">
+        <div class="profile-avatar" id="profile-avatar" style="background:var(--deep);">?</div>
+        <div style="font-family:var(--font-display);font-size:1.3rem;color:var(--glow);" id="profile-name">-</div>
+        <div style="color:var(--muted);font-size:0.85rem;margin-top:0.25rem;" id="profile-username">@-</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="p-wins">0</div><div class="stat-label">Vittorie</div></div>
+        <div class="stat-card"><div class="stat-value" id="p-losses">0</div><div class="stat-label">Sconfitte</div></div>
+        <div class="stat-card"><div class="stat-value" id="p-played">0</div><div class="stat-label">Partite</div></div>
+        <div class="stat-card"><div class="stat-value" id="p-rate">0%</div><div class="stat-label">Win Rate</div></div>
+      </div>
+      <div class="section-title">Formato Preferito</div>
+      <div class="card" id="fav-format-card"><div style="color:var(--muted);font-size:0.9rem;">Nessuna partita ancora</div></div>
+      <div class="section-title">Account</div>
+      <div class="card" style="margin-bottom:0.75rem;">
+        <div style="font-size:0.85rem;color:var(--muted);margin-bottom:0.25rem;">Email</div>
+        <div style="font-size:0.95rem;color:var(--text);" id="profile-email">-</div>
+      </div>
+      <button class="btn btn-danger btn-full" onclick="doLogout()" style="margin-top:0.5rem;">Esci dall'Account</button>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" id="nav-home" onclick="switchTab('home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>Casa
+      </button>
+      <button class="nav-btn" id="nav-history" onclick="switchTab('history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Storico
+      </button>
+      <button class="nav-btn" id="nav-leaderboard" onclick="switchTab('leaderboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="18,20 18,10"/><polyline points="12,20 12,4"/><polyline points="6,20 6,14"/></svg>Classifica
+      </button>
+      <button class="nav-btn" id="nav-sfide" onclick="switchTab('sfide')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Sfide
+      </button>
+      <button class="nav-btn" id="nav-statistiche" onclick="switchTab('statistiche')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10M12 20V4M6 20v-6"/><circle cx="18" cy="7" r="2"/><circle cx="12" cy="2" r="2"/><circle cx="6" cy="12" r="2"/></svg>Stat
+      </button>
+      <button class="nav-btn" id="nav-profile" onclick="switchTab('profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profilo
+      </button>
+    </nav>
+  </div>
+</div>
+
+<!-- MODAL PARTITA -->
+<div class="modal-overlay" id="add-match-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚔ Registra Partita</div>
+    <div class="form-group">
+      <label>Formato</label>
+      <div class="format-grid">
+        <button class="format-btn selected" onclick="selectFormat('Commander')">Commander</button>
+        <button class="format-btn" onclick="selectFormat('Standard')">Standard</button>
+        <button class="format-btn" onclick="selectFormat('Modern')">Modern</button>
+        <button class="format-btn" onclick="selectFormat('Draft')">Draft</button>
+        <button class="format-btn" onclick="selectFormat('Pauper')">Pauper</button>
+        <button class="format-btn" onclick="selectFormat('Legacy')">Legacy</button>
+      </div>
+    </div>
+    <div class="form-group"><label>Giocatori</label><div class="player-chips" id="modal-players"></div></div>
+    <div class="form-group" id="winner-section" style="display:none;">
+      <label>Vincitore</label>
+      <div id="winner-options"></div>
+      <button class="winner-option" onclick="selectWinner('__draw__')" id="draw-btn">
+        <span class="winner-trophy">🤝</span><span>Pareggio</span>
+      </button>
+    </div>
+    <div class="form-group"><label>Il tuo mazzo (opzionale)</label><input type="text" id="deck-name" placeholder="es. Sliver Queen, Mono-Red Burn..."></div>
+    <div class="form-group" id="opp-decks-section" style="display:none;">
+      <label>Mazzi avversari (opzionale)</label>
+      <div id="opp-deck-inputs"></div>
+    </div>
+    <div class="form-group"><label>Note (opzionale)</label><textarea id="match-notes" rows="2" placeholder="momenti epici della partita..." style="resize:none;"></textarea></div>
+    <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-primary" style="flex:1;" id="save-match-btn" onclick="saveMatch()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDXZ07o3lAnv0UkwF2Jik7KwdT51Ja9J7I",
+  authDomain: "mtg-tracker-291090.firebaseapp.com",
+  projectId: "mtg-tracker-291090",
+  storageBucket: "mtg-tracker-291090.firebasestorage.app",
+  messagingSenderId: "538603164123",
+  appId: "1:538603164123:web:9f9a71fb5268657ebf17fe"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ============ STATE ============
+let currentUser = null;      // Firebase Auth user + Firestore profile
+let allUsers = [];           // [{id, name, username, color, email}]
+let allMatches = [];         // [{id, players[], winner, format, deck, decks{}, notes, date}]
+let unsubMatches = null;
+let unsubUsers = null;
+
+const colorMap = {
+  white:{bg:'rgba(248,240,255,0.15)',text:'#f8f0ff'},
+  blue:{bg:'rgba(59,130,246,0.15)',text:'#93c5fd'},
+  black:{bg:'rgba(124,58,237,0.15)',text:'#c4b5d4'},
+  red:{bg:'rgba(220,38,38,0.15)',text:'#fca5a5'},
+  green:{bg:'rgba(5,150,105,0.15)',text:'#6ee7b7'},
+};
+let regColor = 'blue';
+
+// ============ STARS ============
+const starsEl = document.getElementById('stars');
+for(let i=0;i<60;i++){
+  const s=document.createElement('div'); s.className='star';
+  s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*4}s;--delay:${Math.random()*4}s;--max-op:${0.2+Math.random()*0.7}`;
+  starsEl.appendChild(s);
+}
+
+// ============ AUTH STATE ============
+onAuthStateChanged(auth, async (firebaseUser) => {
+  if (firebaseUser) {
+    const profileDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    if (profileDoc.exists()) {
+      currentUser = { id: firebaseUser.uid, email: firebaseUser.email, ...profileDoc.data() };
+      await subscribeToData();
+      hideLoading();
+      showMain();
+    } else {
+      hideLoading();
+      showAuthPage('auth-login');
+    }
+  } else {
+    currentUser = null;
+    hideLoading();
+    showAuthPage('auth-login');
+  }
+});
+
+function hideLoading() { document.getElementById('loading-screen').style.display = 'none'; }
+
+async function subscribeToData() {
+  // Listen to users collection
+  if (unsubUsers) unsubUsers();
+  unsubUsers = onSnapshot(collection(db, 'users'), snap => {
+    allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    refreshAllViews();
+  });
+  // Listen to matches collection
+  if (unsubMatches) unsubMatches();
+  const mq = query(collection(db, 'matches'), orderBy('date', 'desc'));
+  unsubMatches = onSnapshot(mq, snap => {
+    allMatches = snap.docs.map(d => {
+      const data = d.data();
+      return { id: d.id, ...data, date: data.date?.toDate?.()?.toISOString() || data.date };
+    });
+    refreshAllViews();
+  });
+}
+
+function refreshAllViews() {
+  const activeTab = document.querySelector('.nav-btn.active')?.id?.replace('nav-','') || 'home';
+  if(activeTab==='home')renderHome();
+  if(activeTab==='history')renderHistory();
+  if(activeTab==='leaderboard')renderLeaderboard();
+  if(activeTab==='profile')renderProfile();
+  if(activeTab==='sfide')initSfide();
+  if(activeTab==='statistiche')initStatistiche();
+}
+
+// ============ AUTH FUNCTIONS ============
+window.showAuthPage = function(id) {
+  ['auth-login','auth-register'].forEach(p => {
+    document.getElementById(p).style.display = p===id ? 'block' : 'none';
+  });
+};
+
+function showMain() {
+  document.getElementById('auth-login').style.display = 'none';
+  document.getElementById('auth-register').style.display = 'none';
+  document.getElementById('main-app').style.display = 'block';
+  switchTab('home');
+}
+
+window.pickColor = function(c) {
+  regColor = c;
+  document.querySelectorAll('#color-picker .player-chip').forEach(el => el.classList.toggle('selected', el.dataset.color===c));
+};
+
+window.doRegister = async function() {
+  const name = document.getElementById('reg-name').value.trim();
+  const username = document.getElementById('reg-user').value.trim().toLowerCase();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  const errEl = document.getElementById('reg-error');
+  errEl.textContent = '';
+  if (!name||!username||!email||!pass) { errEl.textContent = 'Compila tutti i campi!'; return; }
+  if (pass.length < 6) { errEl.textContent = 'Password di almeno 6 caratteri'; return; }
+  // Check username unique
+  const usersSnap = await getDocs(collection(db,'users'));
+  const taken = usersSnap.docs.some(d => d.data().username === username);
+  if (taken) { errEl.textContent = 'Username già in uso!'; return; }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await setDoc(doc(db, 'users', cred.user.uid), { name, username, color: regColor, email, joined: new Date().toISOString() });
+    showToast('Benvenuto nel Multiverso, '+name+'! 🎉', 'success');
+  } catch(e) {
+    errEl.textContent = firebaseErrMsg(e.code);
+  }
+};
+
+window.doLogin = async function() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    showToast('Bentornato, Planeswalker!', 'success');
+  } catch(e) {
+    errEl.textContent = firebaseErrMsg(e.code);
+  }
+};
+
+window.doLogout = async function() {
+  if (unsubMatches) unsubMatches();
+  if (unsubUsers) unsubUsers();
+  await signOut(auth);
+  document.getElementById('main-app').style.display = 'none';
+  showToast('Alla prossima, Planeswalker!');
+};
+
+function firebaseErrMsg(code) {
+  const msgs = {
+    'auth/email-already-in-use': 'Email già registrata',
+    'auth/invalid-email': 'Email non valida',
+    'auth/wrong-password': 'Password errata',
+    'auth/user-not-found': 'Nessun account con questa email',
+    'auth/weak-password': 'Password troppo debole',
+    'auth/invalid-credential': 'Email o password errati',
+    'auth/too-many-requests': 'Troppi tentativi, riprova tra poco',
+  };
+  return msgs[code] || 'Errore: ' + code;
+}
+
+// ============ TABS ============
+window.switchTab = function(tab) {
+  ['home','history','leaderboard','sfide','statistiche','profile'].forEach(t => {
+    document.getElementById('page-'+t).classList.remove('active');
+    document.getElementById('nav-'+t).classList.remove('active');
+  });
+  document.getElementById('page-'+tab).classList.add('active');
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='home')renderHome();
+  if(tab==='history')renderHistory();
+  if(tab==='leaderboard')renderLeaderboard();
+  if(tab==='sfide'){initSfide();setSfideTab('1v1');}
+  if(tab==='statistiche')initStatistiche();
+  if(tab==='profile')renderProfile();
+};
+
+// ============ HELPERS ============
+function userMatchesList(uid, format='') {
+  return allMatches.filter(m => {
+    if (!m.players.includes(uid)) return false;
+    if (format && m.format !== format) return false;
+    return true;
+  });
+}
+function userWins(uid, format='') { return userMatchesList(uid,format).filter(m=>m.winner===uid).length; }
+function userWinRate(uid, format='') {
+  const t = userMatchesList(uid,format).length; if(!t)return 0;
+  return Math.round(userWins(uid,format)/t*100);
+}
+function currentStreak(uid) {
+  const matches = [...allMatches].filter(m=>m.players.includes(uid)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!matches.length)return 0;
+  let streak=0; const first=matches[0].winner===uid?'win':'other';
+  for(const m of matches){
+    if(first==='win'&&m.winner===uid)streak++;
+    else if(first!=='win'&&m.winner!==uid)streak++;
+    else break;
+  }
+  return first==='win'?streak:-streak;
+}
+function userName(uid) {
+  if(uid===currentUser?.id)return 'Tu';
+  return allUsers.find(u=>u.id===uid)?.name||'?';
+}
+
+// ============ RENDER MATCH ITEM ============
+function renderMatchItem(m, viewerId) {
+  const isWin=m.winner===viewerId; const isDraw=m.winner==='__draw__'||!m.winner;
+  const result=isDraw?'draw':isWin?'win':'loss'; const label=isDraw?'–':isWin?'V':'S';
+  const playerNames=m.players.map(pid=>userName(pid));
+  const winner=m.winner==='__draw__'?'Pareggio':allUsers.find(u=>u.id===m.winner)?.name||'Tu';
+  const date=new Date(m.date).toLocaleDateString('it-IT',{day:'2-digit',month:'short'});
+  return `<div class="card" style="margin-bottom:0.75rem;">
+    <div class="match-item">
+      <div class="match-result ${result}">${label}</div>
+      <div class="match-info">
+        <div class="match-players">${playerNames.join(' vs ')}</div>
+        <div class="match-meta">
+          <span class="match-format">${m.format||''}</span>
+          <span style="margin-left:6px;">🏆 ${winner}</span>
+          ${m.deck?`<span style="margin-left:6px;color:var(--subtle);">${m.deck}</span>`:''}
+        </div>
+      </div>
+      <div class="match-date">${date}</div>
+    </div>
+    ${m.notes?`<div style="margin-top:0.6rem;padding-top:0.6rem;border-top:0.5px solid var(--border);font-size:0.85rem;color:var(--muted);font-style:italic;">"${m.notes}"</div>`:''}
+  </div>`;
+}
+
+// ============ HOME ============
+function renderHome() {
+  if(!currentUser)return;
+  document.getElementById('home-greeting').textContent='Ciao, '+currentUser.name+'!';
+  const total=userMatchesList(currentUser.id).length;
+  const wins=userWins(currentUser.id); const rate=userWinRate(currentUser.id); const streak=currentStreak(currentUser.id);
+  document.getElementById('qs-wins').textContent=wins;
+  document.getElementById('qs-played').textContent=total;
+  document.getElementById('qs-rate').textContent=rate+'%';
+  const streakEl=document.getElementById('qs-streak');
+  streakEl.textContent=(streak>0?'+':'')+streak;
+  streakEl.style.color=streak>0?'var(--green)':streak<0?'var(--red)':'var(--bright)';
+  const recent=allMatches.filter(m=>m.players.includes(currentUser.id)).slice(0,5);
+  const list=document.getElementById('recent-matches-list');
+  list.innerHTML=recent.length?recent.map(m=>renderMatchItem(m,currentUser.id)).join('')
+    :'<div class="card" style="text-align:center;color:var(--muted);font-size:0.95rem;">Nessuna partita ancora.<br>Registra la tua prima vittoria! ⚔</div>';
+}
+
+// ============ HISTORY ============
+function renderHistory() {
+  if(!currentUser)return;
+  const format=document.getElementById('filter-format')?.value||'';
+  const result=document.getElementById('filter-result')?.value||'';
+  let matches=allMatches.filter(m=>m.players.includes(currentUser.id));
+  if(format)matches=matches.filter(m=>m.format===format);
+  if(result==='win')matches=matches.filter(m=>m.winner===currentUser.id);
+  else if(result==='loss')matches=matches.filter(m=>m.winner&&m.winner!==currentUser.id&&m.winner!=='__draw__');
+  else if(result==='draw')matches=matches.filter(m=>m.winner==='__draw__'||!m.winner);
+  const list=document.getElementById('history-list');
+  list.innerHTML=matches.length?matches.map(m=>renderMatchItem(m,currentUser.id)).join('')
+    :'<div class="card" style="text-align:center;color:var(--muted);">Nessuna partita trovata</div>';
+}
+
+// ============ LEADERBOARD ============
+function renderLeaderboard() {
+  const format=document.getElementById('lb-format')?.value||'';
+  const list=document.getElementById('leaderboard-list');
+  const rankData=allUsers.map(u=>({user:u,wins:userWins(u.id,format),played:userMatchesList(u.id,format).length,rate:userWinRate(u.id,format)}))
+    .filter(r=>r.played>0).sort((a,b)=>b.wins-a.wins||b.rate-a.rate);
+  if(!rankData.length){list.innerHTML='<div class="card" style="text-align:center;color:var(--muted);">Nessuna partita ancora</div>';return;}
+  const rankClass=['gold','silver','bronze'];
+  list.innerHTML=rankData.map((r,i)=>{
+    const initials=r.user.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const col=colorMap[r.user.color||'blue']||colorMap.blue;
+    const isMe=currentUser&&r.user.id===currentUser.id;
+    return `<div class="card" style="margin-bottom:0.75rem;${isMe?'border-color:var(--bright);':''}">
+      <div class="lb-item">
+        <div class="lb-rank ${rankClass[i]||'other'}">${i<3?['🥇','🥈','🥉'][i]:i+1}</div>
+        <div class="lb-avatar" style="background:${col.bg};color:${col.text};">${initials}</div>
+        <div class="lb-name">${r.user.name}${isMe?' <span style="font-size:0.7rem;color:var(--bright);">(tu)</span>':''}</div>
+        <div class="lb-score"><div class="lb-wins">${r.wins}V</div><div class="lb-rate">${r.rate}% — ${r.played} partite</div></div>
+      </div></div>`;
+  }).join('');
+}
+
+// ============ PROFILE ============
+function renderProfile() {
+  if(!currentUser)return;
+  const col=colorMap[currentUser.color||'blue']||colorMap.blue;
+  const initials=currentUser.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const av=document.getElementById('profile-avatar');
+  av.textContent=initials; av.style.background=col.bg; av.style.color=col.text; av.style.borderColor=col.text;
+  document.getElementById('profile-name').textContent=currentUser.name;
+  document.getElementById('profile-username').textContent='@'+currentUser.username;
+  document.getElementById('profile-email').textContent=currentUser.email||'-';
+  const total=userMatchesList(currentUser.id).length; const wins=userWins(currentUser.id);
+  document.getElementById('p-wins').textContent=wins;
+  document.getElementById('p-losses').textContent=total-wins;
+  document.getElementById('p-played').textContent=total;
+  document.getElementById('p-rate').textContent=userWinRate(currentUser.id)+'%';
+  const formats={};
+  allMatches.filter(m=>m.players.includes(currentUser.id)).forEach(m=>{formats[m.format]=(formats[m.format]||0)+1;});
+  const fav=Object.entries(formats).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('fav-format-card').innerHTML=fav
+    ?`<div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:var(--glow);font-family:var(--font-display);">${fav[0]}</span><span style="color:var(--muted);font-size:0.85rem;">${fav[1]} partite</span></div>`
+    :'<div style="color:var(--muted);font-size:0.9rem;">Nessuna partita ancora</div>';
+}
+
+// ============ ADD MATCH MODAL ============
+let selectedFormat='Commander', selectedPlayers=[], selectedWinner=null;
+
+window.openAddMatch = function() {
+  selectedPlayers=[]; selectedWinner=null; selectedFormat='Commander';
+  document.getElementById('deck-name').value='';
+  document.getElementById('match-notes').value='';
+  document.getElementById('opp-decks-section').style.display='none';
+  const chips=document.getElementById('modal-players');
+  chips.innerHTML=allUsers.map(u=>{
+    const isMe=u.id===currentUser.id;
+    return `<button class="player-chip ${isMe?'selected':''}" onclick="togglePlayer('${u.id}',this)">${isMe?'Tu':u.name}</button>`;
+  }).join('');
+  selectedPlayers=[currentUser.id];
+  document.querySelectorAll('.format-btn').forEach(b=>b.classList.remove('selected'));
+  document.querySelector('.format-btn').classList.add('selected');
+  document.getElementById('winner-section').style.display='none';
+  document.getElementById('add-match-modal').classList.add('open');
+};
+window.closeModal = function() { document.getElementById('add-match-modal').classList.remove('open'); };
+
+window.togglePlayer = function(uid, el) {
+  if(selectedPlayers.includes(uid)){
+    if(selectedPlayers.length<=2){showToast('Servono almeno 2 giocatori','error');return;}
+    selectedPlayers=selectedPlayers.filter(p=>p!==uid); el.classList.remove('selected');
+  } else { selectedPlayers.push(uid); el.classList.add('selected'); }
+  updateWinnerSection();
+};
+window.selectFormat = function(f) {
+  selectedFormat=f;
+  document.querySelectorAll('.format-btn').forEach(b=>b.classList.toggle('selected',b.textContent===f));
+};
+window.selectWinner = function(uid) { selectedWinner=uid; updateWinnerSection(); };
+
+function updateWinnerSection() {
+  const sec=document.getElementById('winner-section');
+  if(selectedPlayers.length<2){sec.style.display='none';return;}
+  sec.style.display='block';
+  document.getElementById('winner-options').innerHTML=selectedPlayers.map(pid=>{
+    const u=allUsers.find(u=>u.id===pid);
+    const name=pid===currentUser.id?'Tu':u?.name||'?';
+    return `<button class="winner-option ${selectedWinner===pid?'selected':''}" onclick="selectWinner('${pid}')">
+      <span class="winner-trophy">🏆</span><span>${name}</span></button>`;
+  }).join('');
+  document.getElementById('draw-btn').classList.toggle('selected',selectedWinner==='__draw__');
+  const opponents=selectedPlayers.filter(p=>p!==currentUser.id);
+  const oppSec=document.getElementById('opp-decks-section');
+  if(opponents.length>0){
+    oppSec.style.display='block';
+    document.getElementById('opp-deck-inputs').innerHTML=opponents.map(pid=>{
+      const u=allUsers.find(u=>u.id===pid);
+      return `<div style="margin-bottom:0.5rem;">
+        <label style="font-size:0.8rem;color:var(--subtle);margin-bottom:0.25rem;display:block;">${u?.name||'?'}</label>
+        <input type="text" id="opp-deck-${pid}" placeholder="mazzo di ${u?.name||'?'}..."></div>`;
+    }).join('');
+  } else { oppSec.style.display='none'; }
+}
+
+window.saveMatch = async function() {
+  if(selectedPlayers.length<2){showToast('Aggiungi almeno 2 giocatori!','error');return;}
+  if(!selectedWinner){showToast('Seleziona il vincitore!','error');return;}
+  const btn=document.getElementById('save-match-btn');
+  btn.textContent='Salvando...'; btn.disabled=true;
+  const decks={};
+  const myDeck=document.getElementById('deck-name').value.trim();
+  if(myDeck)decks[currentUser.id]=myDeck;
+  selectedPlayers.filter(p=>p!==currentUser.id).forEach(pid=>{
+    const el=document.getElementById('opp-deck-'+pid);
+    if(el&&el.value.trim())decks[pid]=el.value.trim();
+  });
+  try {
+    await addDoc(collection(db,'matches'),{
+      players: selectedPlayers,
+      winner: selectedWinner,
+      format: selectedFormat,
+      deck: myDeck,
+      decks,
+      notes: document.getElementById('match-notes').value.trim(),
+      date: serverTimestamp(),
+      createdBy: currentUser.id
+    });
+    closeModal();
+    showToast('Partita salvata! ⚔','success');
+  } catch(e) {
+    showToast('Errore nel salvataggio: '+e.message,'error');
+  } finally {
+    btn.textContent='Salva'; btn.disabled=false;
+  }
+};
+
+document.getElementById('add-match-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// ============ TOAST ============
+window.showToast = function(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast'+(type?' '+type:'');
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800);
+};
+function showToast(msg,type=''){window.showToast(msg,type);}
+
+// ============ STATISTICHE ============
+let statTimelineChart=null;
+function initStatistiche(){
+  if(!currentUser)return;
+  const others=allUsers.filter(u=>u.id!==currentUser.id);
+  const sel=document.getElementById('stat-rival-select');
+  sel.innerHTML='<option value="">— tutti gli avversari —</option>'+others.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  renderStatistiche();
+}
+window.renderStatistiche = function(){
+  if(!currentUser)return;
+  const rivalId=document.getElementById('stat-rival-select')?.value||'';
+  let myMatches=allMatches.filter(m=>m.players.includes(currentUser.id));
+  if(rivalId)myMatches=myMatches.filter(m=>m.players.includes(rivalId));
+  myMatches=[...myMatches].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const total=myMatches.length;
+  const wins=myMatches.filter(m=>m.winner===currentUser.id).length;
+  const losses=myMatches.filter(m=>m.winner&&m.winner!==currentUser.id&&m.winner!=='__draw__').length;
+  const draws=myMatches.filter(m=>m.winner==='__draw__'||!m.winner).length;
+  const rate=total?Math.round(wins/total*100):0;
+  document.getElementById('stat-overview').innerHTML=`
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;text-align:center;margin-bottom:1rem;">
+        <div><div style="font-family:var(--font-display);font-size:1.6rem;color:#34d399;">${wins}</div><div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Vittorie</div></div>
+        <div><div style="font-family:var(--font-display);font-size:1.6rem;color:#f87171;">${losses}</div><div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Sconfitte</div></div>
+        <div><div style="font-family:var(--font-display);font-size:1.6rem;color:var(--bright);">${draws}</div><div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Pari</div></div>
+        <div><div style="font-family:var(--font-display);font-size:1.6rem;color:var(--gold);">${rate}%</div><div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Win%</div></div>
+      </div>
+      <div style="height:8px;border-radius:4px;overflow:hidden;display:flex;gap:1px;">
+        ${wins>0?`<div style="flex:${wins};background:#34d399;border-radius:4px 0 0 4px;"></div>`:''}
+        ${draws>0?`<div style="flex:${draws};background:rgba(168,85,247,0.6);"></div>`:''}
+        ${losses>0?`<div style="flex:${losses};background:#f87171;border-radius:0 4px 4px 0;"></div>`:''}
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.75rem;">
+        <span style="color:#34d399;">■ Vittorie</span>${draws>0?'<span style="color:var(--bright);">■ Pareggi</span>':''}<span style="color:#f87171;">■ Sconfitte</span>
+      </div>
+    </div>`;
+  renderDeckBreakdown(myMatches, rivalId);
+  renderStatTimeline(myMatches);
+  renderFormatBreakdown(myMatches);
+};
+function renderDeckBreakdown(myMatches, rivalId){
+  const sec=document.getElementById('stat-decks-section');
+  const deckStats={};
+  myMatches.forEach(m=>{
+    const opponents=m.players.filter(p=>p!==currentUser.id);
+    const targets=rivalId?opponents.filter(p=>p===rivalId):opponents;
+    targets.forEach(pid=>{
+      const oppDeck=(m.decks&&m.decks[pid])||null;
+      const key=oppDeck||'(mazzo sconosciuto)';
+      if(!deckStats[key])deckStats[key]={wins:0,losses:0,draws:0,players:new Set(),count:0};
+      deckStats[key].count++; deckStats[key].players.add(pid);
+      if(m.winner===currentUser.id)deckStats[key].wins++;
+      else if(m.winner==='__draw__'||!m.winner)deckStats[key].draws++;
+      else deckStats[key].losses++;
+    });
+  });
+  const entries=Object.entries(deckStats).sort((a,b)=>b[1].count-a[1].count);
+  if(!entries.length){sec.innerHTML='';return;}
+  const rivalLabel=rivalId?(allUsers.find(u=>u.id===rivalId)?.name||'?'):'tutti gli avversari';
+  sec.innerHTML=`<div class="section-title">Mazzi Incontrati${rivalId?' — '+rivalLabel:''}</div>`+
+  entries.map(([deck,s])=>{
+    const total=s.wins+s.losses+s.draws; const rate=Math.round(s.wins/total*100);
+    const playerNames=[...s.players].map(pid=>{const u=allUsers.find(u=>u.id===pid);return u?.name||'?';}).join(', ');
+    return `<div class="card" style="margin-bottom:0.75rem;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.6rem;">
+        <div>
+          <div style="font-family:var(--font-display);font-size:0.95rem;color:var(--glow);">${deck}</div>
+          <div style="font-size:0.78rem;color:var(--subtle);margin-top:2px;">usato da: ${playerNames}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:0.75rem;">
+          <div style="font-family:var(--font-display);font-size:1.1rem;color:${rate>=50?'#34d399':'#f87171'};">${rate}%</div>
+          <div style="font-size:0.72rem;color:var(--muted);">${total} partite</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;font-size:0.8rem;margin-bottom:0.5rem;">
+        <span style="color:#34d399;">${s.wins}V</span>${s.draws>0?`<span style="color:var(--bright);">${s.draws}P</span>`:''}<span style="color:#f87171;">${s.losses}S</span>
+      </div>
+      <div style="height:5px;border-radius:3px;overflow:hidden;display:flex;gap:1px;">
+        ${s.wins>0?`<div style="flex:${s.wins/total*100};background:#34d399;"></div>`:''}
+        ${s.draws>0?`<div style="flex:${s.draws/total*100};background:rgba(168,85,247,0.6);"></div>`:''}
+        ${s.losses>0?`<div style="flex:${s.losses/total*100};background:#f87171;"></div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderStatTimeline(myMatches){
+  const wrap=document.getElementById('stat-timeline-wrap');
+  if(myMatches.length<2){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const months={};
+  myMatches.forEach(m=>{
+    const d=new Date(m.date); const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!months[key])months[key]={wins:0,losses:0};
+    if(m.winner===currentUser.id)months[key].wins++; else if(m.winner&&m.winner!=='__draw__')months[key].losses++;
+  });
+  const sorted=Object.entries(months).sort((a,b)=>a[0].localeCompare(b[0]));
+  const labels=sorted.map(([k])=>{const[y,mo]=k.split('-');return new Date(+y,+mo-1,1).toLocaleDateString('it-IT',{month:'short',year:'2-digit'});});
+  if(!window.Chart){setTimeout(()=>renderStatTimeline(myMatches),300);return;}
+  const canvas=document.getElementById('stat-timeline-chart');
+  if(statTimelineChart){statTimelineChart.destroy();statTimelineChart=null;}
+  statTimelineChart=new Chart(canvas,{type:'bar',data:{labels,datasets:[
+    {label:'Vittorie',data:sorted.map(([,v])=>v.wins),backgroundColor:'rgba(52,211,153,0.7)',borderRadius:4},
+    {label:'Sconfitte',data:sorted.map(([,v])=>v.losses),backgroundColor:'rgba(248,113,113,0.7)',borderRadius:4}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#c4b5d4',font:{size:12}}},tooltip:{backgroundColor:'rgba(26,10,46,0.95)',titleColor:'#f3e8ff',bodyColor:'#c4b5d4',borderColor:'rgba(168,85,247,0.3)',borderWidth:1}},scales:{x:{ticks:{color:'#7c6a90',font:{size:10}},grid:{color:'rgba(168,85,247,0.06)'}},y:{ticks:{color:'#7c6a90',stepSize:1,font:{size:10}},grid:{color:'rgba(168,85,247,0.08)'},beginAtZero:true}}}});
+}
+function renderFormatBreakdown(myMatches){
+  const sec=document.getElementById('stat-formats-section');
+  const fmts={};
+  myMatches.forEach(m=>{const f=m.format||'Altro';if(!fmts[f])fmts[f]={wins:0,losses:0,draws:0};if(m.winner===currentUser.id)fmts[f].wins++;else if(m.winner==='__draw__'||!m.winner)fmts[f].draws++;else fmts[f].losses++;});
+  const entries=Object.entries(fmts).sort((a,b)=>(b[1].wins+b[1].losses+b[1].draws)-(a[1].wins+a[1].losses+a[1].draws));
+  if(!entries.length){sec.innerHTML='';return;}
+  sec.innerHTML=`<div class="section-title">Risultati per Formato</div>`+entries.map(([fmt,s])=>{
+    const total=s.wins+s.losses+s.draws; const rate=Math.round(s.wins/total*100);
+    return `<div class="card" style="margin-bottom:0.75rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <span style="font-family:var(--font-display);font-size:0.9rem;color:var(--glow);">${fmt}</span>
+        <span style="font-size:0.8rem;color:var(--muted);">${total} partite</span>
+      </div>
+      <div style="display:flex;gap:1rem;font-size:0.82rem;margin-bottom:0.4rem;">
+        <span style="color:#34d399;">${s.wins}V</span>${s.draws?`<span style="color:var(--bright);">${s.draws}P</span>`:''}<span style="color:#f87171;">${s.losses}S</span>
+        <span style="margin-left:auto;font-family:var(--font-display);color:${rate>=50?'#34d399':'#f87171'};">${rate}%</span>
+      </div>
+      <div style="height:4px;border-radius:2px;overflow:hidden;display:flex;gap:1px;">
+        ${s.wins>0?`<div style="flex:${s.wins};background:#34d399;"></div>`:''}${s.draws>0?`<div style="flex:${s.draws};background:rgba(168,85,247,0.5);"></div>`:''}${s.losses>0?`<div style="flex:${s.losses};background:#f87171;"></div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============ SFIDE ============
+let duelChartInstance=null, v2ChartInstance=null, selectedEnemies=[];
+
+window.setSfideTab = function(tab){
+  document.getElementById('sfide-tab-1v1').classList.toggle('selected',tab==='1v1');
+  document.getElementById('sfide-tab-2v2').classList.toggle('selected',tab==='2v2');
+  document.getElementById('sfide-1v1-section').style.display=tab==='1v1'?'block':'none';
+  document.getElementById('sfide-2v2-section').style.display=tab==='2v2'?'block':'none';
+  if(tab==='1v1')renderDuel(); else render2v2Setup();
+};
+function initSfide(){
+  if(!currentUser)return;
+  const others=allUsers.filter(u=>u.id!==currentUser.id);
+  const rs=document.getElementById('rival-select');
+  rs.innerHTML='<option value="">— scegli avversario —</option>'+others.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  const as=document.getElementById('ally-select');
+  as.innerHTML='<option value="">— scegli compagno —</option>'+others.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  selectedEnemies=[];
+  document.getElementById('enemy-chips').innerHTML=others.map(u=>`<button class="player-chip" data-uid="${u.id}" onclick="toggleEnemy('${u.id}',this)">${u.name}</button>`).join('');
+  renderDuel();
+}
+window.renderDuel = function(){
+  const rivalId=document.getElementById('rival-select')?.value;
+  const statsEl=document.getElementById('duel-stats');
+  const chartWrap=document.getElementById('duel-chart-wrap');
+  const histEl=document.getElementById('duel-history');
+  if(!rivalId){statsEl.innerHTML='<div class="card" style="text-align:center;color:var(--muted);font-size:0.9rem;">Seleziona un avversario</div>';chartWrap.style.display='none';histEl.innerHTML='';return;}
+  const rival=allUsers.find(u=>u.id===rivalId);
+  const matches=allMatches.filter(m=>m.players.length===2&&m.players.includes(currentUser.id)&&m.players.includes(rivalId)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!matches.length){statsEl.innerHTML=`<div class="card" style="text-align:center;color:var(--muted);">Nessuna sfida diretta con ${rival?.name}</div>`;chartWrap.style.display='none';histEl.innerHTML='';return;}
+  const myWins=matches.filter(m=>m.winner===currentUser.id).length;
+  const rivalWins=matches.filter(m=>m.winner===rivalId).length;
+  const draws=matches.filter(m=>m.winner==='__draw__'||!m.winner).length;
+  const total=matches.length; const myRate=Math.round(myWins/total*100);
+  const col=colorMap[rival?.color||'blue']||colorMap.blue;
+  const ri=rival?.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+  statsEl.innerHTML=`<div class="card" style="margin-bottom:0.75rem;">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+      <div class="lb-avatar" style="background:${col.bg};color:${col.text};">${ri}</div>
+      <div><div style="font-family:var(--font-display);color:var(--glow);">vs ${rival?.name}</div><div style="font-size:0.8rem;color:var(--muted);">${total} sfide</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:0.5rem;text-align:center;">
+      <div><div style="font-family:var(--font-display);font-size:2rem;color:#34d399;">${myWins}</div><div style="font-size:0.75rem;color:var(--muted);">Tue vittorie</div><div style="font-size:0.85rem;color:var(--muted);">${myRate}%</div></div>
+      <div style="color:var(--subtle);">${draws>0?`<div style="font-size:0.75rem;">${draws} pari</div>`:''}⚔</div>
+      <div><div style="font-family:var(--font-display);font-size:2rem;color:#f87171;">${rivalWins}</div><div style="font-size:0.75rem;color:var(--muted);">Sue vittorie</div><div style="font-size:0.85rem;color:var(--muted);">${Math.round(rivalWins/total*100)}%</div></div>
+    </div>
+    <div style="margin-top:1rem;height:6px;border-radius:3px;overflow:hidden;background:rgba(248,113,113,0.3);">
+      <div style="height:100%;width:${myRate}%;background:linear-gradient(90deg,#34d399,#059669);border-radius:3px;transition:width 0.8s ease;"></div>
+    </div>
+  </div>`;
+  chartWrap.style.display='block';
+  renderDuelChart(matches,rivalId,rival?.name);
+  histEl.innerHTML='<div class="section-title">Partite Recenti</div>'+[...matches].reverse().slice(0,5).map(m=>renderMatchItem(m,currentUser.id)).join('');
+};
+function renderDuelChart(matches,rivalId,rivalName){
+  if(!window.Chart){setTimeout(()=>renderDuelChart(matches,rivalId,rivalName),300);return;}
+  const canvas=document.getElementById('duel-chart');
+  if(duelChartInstance){duelChartInstance.destroy();duelChartInstance=null;}
+  let mc=0,rc=0; const labels=[],md=[],rd=[];
+  matches.forEach(m=>{if(m.winner===currentUser.id)mc++;else if(m.winner===rivalId)rc++;labels.push(new Date(m.date).toLocaleDateString('it-IT',{day:'2-digit',month:'short'}));md.push(mc);rd.push(rc);});
+  duelChartInstance=new Chart(canvas,{type:'line',data:{labels,datasets:[{label:'Tu',data:md,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,0.1)',tension:0.4,pointRadius:4,pointBackgroundColor:'#34d399',fill:true},{label:rivalName,data:rd,borderColor:'#f87171',backgroundColor:'rgba(248,113,113,0.1)',tension:0.4,pointRadius:4,pointBackgroundColor:'#f87171',fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#c4b5d4',font:{size:12}}},tooltip:{backgroundColor:'rgba(26,10,46,0.95)',titleColor:'#f3e8ff',bodyColor:'#c4b5d4',borderColor:'rgba(168,85,247,0.3)',borderWidth:1}},scales:{x:{ticks:{color:'#7c6a90',maxRotation:45,font:{size:10}},grid:{color:'rgba(168,85,247,0.08)'}},y:{ticks:{color:'#7c6a90',stepSize:1,font:{size:10}},grid:{color:'rgba(168,85,247,0.08)'},beginAtZero:true}}}});
+}
+window.toggleEnemy = function(uid,el){
+  if(selectedEnemies.includes(uid)){selectedEnemies=selectedEnemies.filter(e=>e!==uid);el.classList.remove('selected');}
+  else{if(selectedEnemies.length>=2){showToast('Seleziona solo 2 avversari','error');return;}selectedEnemies.push(uid);el.classList.add('selected');}
+  render2v2();
+};
+function render2v2Setup(){selectedEnemies=[];document.querySelectorAll('#enemy-chips .player-chip').forEach(b=>b.classList.remove('selected'));render2v2();}
+window.render2v2 = function(){
+  const allyId=document.getElementById('ally-select')?.value;
+  const statsEl=document.getElementById('v2-stats');
+  const chartWrap=document.getElementById('v2-chart-wrap');
+  const histEl=document.getElementById('v2-history');
+  if(!allyId||selectedEnemies.length!==2){statsEl.innerHTML=`<div class="card" style="text-align:center;color:var(--muted);font-size:0.9rem;">Seleziona compagno e 2 avversari</div>`;chartWrap.style.display='none';histEl.innerHTML='';return;}
+  const myTeam=[currentUser.id,allyId].sort();
+  const enemyTeam=[...selectedEnemies].sort();
+  const allyUser=allUsers.find(u=>u.id===allyId);
+  const e1=allUsers.find(u=>u.id===enemyTeam[0]);
+  const e2=allUsers.find(u=>u.id===enemyTeam[1]);
+  const matches=allMatches.filter(m=>{if(m.players.length!==4)return false;const ps=[...m.players].sort();const all=[...myTeam,...enemyTeam].sort();return JSON.stringify(ps)===JSON.stringify(all);}).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(!matches.length){statsEl.innerHTML=`<div class="card" style="text-align:center;color:var(--muted);">Nessuna partita 2v2 tra questi team</div>`;chartWrap.style.display='none';histEl.innerHTML='';return;}
+  const mw=matches.filter(m=>myTeam.includes(m.winner)).length;
+  const ew=matches.filter(m=>enemyTeam.includes(m.winner)).length;
+  const draws=matches.filter(m=>m.winner==='__draw__'||!m.winner).length;
+  const total=matches.length; const mr=Math.round(mw/total*100);
+  statsEl.innerHTML=`<div class="card" style="margin-bottom:0.75rem;">
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:0.5rem;text-align:center;">
+      <div><div style="font-size:0.8rem;color:var(--muted);margin-bottom:4px;">Tu & ${allyUser?.name}</div><div style="font-family:var(--font-display);font-size:2rem;color:#34d399;">${mw}</div><div style="font-size:0.85rem;color:var(--muted);">${mr}%</div></div>
+      <div style="color:var(--subtle);">⚔</div>
+      <div><div style="font-size:0.8rem;color:var(--muted);margin-bottom:4px;">${e1?.name} & ${e2?.name}</div><div style="font-family:var(--font-display);font-size:2rem;color:#f87171;">${ew}</div><div style="font-size:0.85rem;color:var(--muted);">${Math.round(ew/total*100)}%</div></div>
+    </div>
+    ${draws>0?`<div style="text-align:center;font-size:0.8rem;color:var(--muted);margin-top:0.5rem;">${draws} pareggio/i</div>`:''}
+    <div style="margin-top:1rem;height:6px;border-radius:3px;overflow:hidden;background:rgba(248,113,113,0.3);">
+      <div style="height:100%;width:${mr}%;background:linear-gradient(90deg,#34d399,#059669);border-radius:3px;"></div>
+    </div>
+  </div>`;
+  chartWrap.style.display='block';
+  render2v2Chart(matches,myTeam,`Tu & ${allyUser?.name}`,`${e1?.name} & ${e2?.name}`);
+  histEl.innerHTML='<div class="section-title">Partite Recenti</div>'+[...matches].reverse().slice(0,5).map(m=>renderMatchItem(m,currentUser.id)).join('');
+};
+function render2v2Chart(matches,myTeam,myLabel,enemyLabel){
+  if(!window.Chart){setTimeout(()=>render2v2Chart(matches,myTeam,myLabel,enemyLabel),300);return;}
+  const canvas=document.getElementById('v2-chart');
+  if(v2ChartInstance){v2ChartInstance.destroy();v2ChartInstance=null;}
+  let mc=0,ec=0; const labels=[],md=[],ed=[];
+  matches.forEach(m=>{if(myTeam.includes(m.winner))mc++;else if(m.winner&&m.winner!=='__draw__')ec++;labels.push(new Date(m.date).toLocaleDateString('it-IT',{day:'2-digit',month:'short'}));md.push(mc);ed.push(ec);});
+  v2ChartInstance=new Chart(canvas,{type:'line',data:{labels,datasets:[{label:myLabel,data:md,borderColor:'#34d399',backgroundColor:'rgba(52,211,153,0.1)',tension:0.4,pointRadius:4,pointBackgroundColor:'#34d399',fill:true},{label:enemyLabel,data:ed,borderColor:'#f87171',backgroundColor:'rgba(248,113,113,0.1)',tension:0.4,pointRadius:4,pointBackgroundColor:'#f87171',fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#c4b5d4',font:{size:11}}},tooltip:{backgroundColor:'rgba(26,10,46,0.95)',titleColor:'#f3e8ff',bodyColor:'#c4b5d4',borderColor:'rgba(168,85,247,0.3)',borderWidth:1}},scales:{x:{ticks:{color:'#7c6a90',maxRotation:45,font:{size:10}},grid:{color:'rgba(168,85,247,0.08)'}},y:{ticks:{color:'#7c6a90',stepSize:1,font:{size:10}},grid:{color:'rgba(168,85,247,0.08)'},beginAtZero:true}}}});
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</body>
+</html>
