@@ -541,19 +541,24 @@ window.doRegister = async function() {
   const email = document.getElementById('reg-email').value.trim();
   const pass = document.getElementById('reg-pass').value;
   const errEl = document.getElementById('reg-error');
+  const btn = document.querySelector('#auth-register .btn-primary');
   errEl.textContent = '';
   if (!name||!username||!email||!pass) { errEl.textContent = 'Compila tutti i campi!'; return; }
   if (pass.length < 6) { errEl.textContent = 'Password di almeno 6 caratteri'; return; }
-  // Check username unique
-  const usersSnap = await getDocs(collection(db,'users'));
-  const taken = usersSnap.docs.some(d => d.data().username === username);
-  if (taken) { errEl.textContent = 'Username già in uso!'; return; }
+  btn.textContent = 'Registrazione...'; btn.disabled = true;
   try {
+    // 1. Crea utente Firebase Auth
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await setDoc(doc(db, 'users', cred.user.uid), { name, username, color: regColor, email, joined: new Date().toISOString() });
+    // 2. Salva profilo su Firestore
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      name, username, color: regColor, email,
+      joined: new Date().toISOString()
+    });
     showToast('Benvenuto nel Multiverso, '+name+'! 🎉', 'success');
   } catch(e) {
-    errEl.textContent = firebaseErrMsg(e.code);
+    console.error('Register error:', e);
+    errEl.textContent = firebaseErrMsg(e.code) || e.message;
+    btn.textContent = "Inizia l'Avventura"; btn.disabled = false;
   }
 };
 
@@ -561,12 +566,17 @@ window.doLogin = async function() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
+  const btn = document.querySelector('#auth-login .btn-primary');
   errEl.textContent = '';
+  if(!email||!pass){errEl.textContent='Inserisci email e password';return;}
+  btn.textContent = 'Accesso...'; btn.disabled = true;
   try {
     await signInWithEmailAndPassword(auth, email, pass);
     showToast('Bentornato, Planeswalker!', 'success');
   } catch(e) {
-    errEl.textContent = firebaseErrMsg(e.code);
+    console.error('Login error:', e);
+    errEl.textContent = firebaseErrMsg(e.code) || e.message;
+    btn.textContent = 'Entra nel Multiverso'; btn.disabled = false;
   }
 };
 
@@ -580,15 +590,19 @@ window.doLogout = async function() {
 
 function firebaseErrMsg(code) {
   const msgs = {
-    'auth/email-already-in-use': 'Email già registrata',
+    'auth/email-already-in-use': 'Email già registrata — prova ad accedere',
     'auth/invalid-email': 'Email non valida',
     'auth/wrong-password': 'Password errata',
     'auth/user-not-found': 'Nessun account con questa email',
-    'auth/weak-password': 'Password troppo debole',
+    'auth/weak-password': 'Password troppo debole (min. 6 caratteri)',
     'auth/invalid-credential': 'Email o password errati',
-    'auth/too-many-requests': 'Troppi tentativi, riprova tra poco',
+    'auth/too-many-requests': 'Troppi tentativi — riprova tra qualche minuto',
+    'auth/network-request-failed': 'Errore di rete — controlla la connessione',
+    'auth/operation-not-allowed': 'Login email non abilitato su Firebase — vai su Authentication → Sign-in method → Email/Password e abilitalo',
+    'permission-denied': 'Firestore non configurato — vai su Firebase → Firestore Database → crea il database in modalità test',
+    'unavailable': 'Firebase non raggiungibile — controlla la connessione',
   };
-  return msgs[code] || 'Errore: ' + code;
+  return msgs[code] || ('Errore Firebase: ' + code);
 }
 
 // ============ TABS ============
